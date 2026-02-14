@@ -1,7 +1,12 @@
 package com.airtribe.meditrack.service;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.stream.Collectors;
 
 import com.airtribe.meditrack.entity.Appointment;
 import com.airtribe.meditrack.entity.AppointmentStatus;
@@ -196,6 +201,49 @@ public class AppointmentService {
         return (int) appointmentStore.getAll().stream()
                 .filter(apt -> apt.getDoctorId().equals(doctorId))
                 .count();
+    }
+
+    /**
+     * Suggest available appointment slots for a doctor within the next `daysAhead` days.
+     * Generates slots during 09:00-17:00 in 30-minute increments and excludes times already booked (non-cancelled).
+     * Returns up to `maxSlots` suggestions.
+     */
+    public List<LocalDateTime> suggestAvailableSlots(String doctorId, int daysAhead, int maxSlots) {
+        List<LocalDateTime> suggestions = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now().withSecond(0).withNano(0);
+        LocalTime start = LocalTime.of(9, 0);
+        LocalTime end = LocalTime.of(17, 0);
+
+        List<LocalDateTime> booked = getAppointmentsByDoctorId(doctorId).stream()
+                .filter(a -> a.getStatus() != AppointmentStatus.CANCELLED)
+                .map(Appointment::getAppointmentDateTime)
+                .collect(Collectors.toList());
+
+        for (int d = 0; d < Math.max(1, daysAhead) && suggestions.size() < maxSlots; d++) {
+            LocalDateTime day = now.plusDays(d).with(start);
+            for (LocalDateTime slot = day; slot.toLocalTime().isBefore(end) && suggestions.size() < maxSlots; slot = slot.plusMinutes(30)) {
+                if (slot.isBefore(now)) continue;
+                boolean conflict = false;
+                for (LocalDateTime b : booked) {
+                    if (b.equals(slot)) { conflict = true; break; }
+                }
+                if (!conflict) suggestions.add(slot);
+            }
+        }
+        return suggestions;
+    }
+
+    /**
+     * Recommend doctors by symptoms (delegates to DoctorService) and suggest slots for each recommended doctor.
+     */
+    public Map<Doctor, List<LocalDateTime>> suggestSlotsForSymptoms(List<String> symptoms, int maxDoctors, int daysAhead, int slotsPerDoctor) {
+        Map<Doctor, List<LocalDateTime>> result = new HashMap<>();
+        List<Doctor> recommended = doctorService.recommendBySymptoms(symptoms, maxDoctors);
+        for (Doctor d : recommended) {
+            List<LocalDateTime> slots = suggestAvailableSlots(d.getDoctorId(), daysAhead, slotsPerDoctor);
+            result.put(d, slots);
+        }
+        return result;
     }
     
     /**
