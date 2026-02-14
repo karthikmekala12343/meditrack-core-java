@@ -3,9 +3,9 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.airtribe.meditrack</groupId>
-	<artifactId>meditrack</artifactId>
+	<artifactId>meditrack-core-java</artifactId>
 	<version>0.0.1</version>
-	<name>meditrack</name>
+	<name>meditrack-core-javak</name>
   	<description>MediTrack — Clinic and Appointment Management System</description>
 	<properties>
 		<java.version>21</java.version>
