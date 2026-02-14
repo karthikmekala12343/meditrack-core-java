@@ -240,7 +240,7 @@ public class AppointmentService {
         Map<Doctor, List<LocalDateTime>> result = new HashMap<>();
         List<Doctor> recommended = doctorService.recommendBySymptoms(symptoms, maxDoctors);
         for (Doctor d : recommended) {
-            List<LocalDateTime> slots = suggestAvailableSlots(d.getDoctorId(), daysAhead, slotsPerDoctor);
+            List<LocalDateTime> slots = suggestAvailableSlots(d.getId(), daysAhead, slotsPerDoctor);
             result.put(d, slots);
         }
         return result;
