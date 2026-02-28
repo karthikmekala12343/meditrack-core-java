@@ -6,7 +6,11 @@ import com.airtribe.meditrack.interface_.Searchable;
 import com.airtribe.meditrack.util.DataStore;
 import com.airtribe.meditrack.util.IdGenerator;
 import java.util.List;
+import java.util.Set;
+import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.HashSet;
+import java.util.Arrays;
 
 /**
  * Service class for managing doctors.
@@ -175,5 +179,73 @@ public class DoctorService implements Searchable {
         return getAllDoctors().stream()
                 .sorted((d1, d2) -> Integer.compare(d2.getYearsOfExperience(), d1.getYearsOfExperience()))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Recommend doctors based on symptom keywords using simple rule-based mapping.
+     * Returns up to `maxResults` doctors matching inferred specializations, sorted by rating then experience.
+     */
+    public List<Doctor> recommendBySymptoms(List<String> symptoms, int maxResults) {
+        if (symptoms == null || symptoms.isEmpty()) {
+            return getDoctorsSortedByRating().stream().limit(maxResults).collect(Collectors.toList());
+        }
+
+        Set<Specialization> inferred = new HashSet<>();
+        for (String s : symptoms) {
+            Specialization spec = mapSymptomToSpecialization(s);
+            if (spec != null) inferred.add(spec);
+        }
+
+        if (inferred.isEmpty()) {
+            inferred.add(Specialization.GENERAL_PRACTITIONER);
+        }
+
+        List<Doctor> candidates = getAllDoctors().stream()
+                .filter(d -> inferred.contains(d.getSpecialization()))
+                .sorted((d1, d2) -> {
+                    int cmp = Double.compare(d2.getRating(), d1.getRating());
+                    return cmp != 0 ? cmp : Integer.compare(d2.getYearsOfExperience(), d1.getYearsOfExperience());
+                })
+                .limit(maxResults)
+                .collect(Collectors.toList());
+
+        return candidates;
+    }
+
+    // Simple keyword-based mapping from symptom -> Specialization
+    private Specialization mapSymptomToSpecialization(String symptom) {
+        if (symptom == null) return null;
+        String s = symptom.toLowerCase();
+        List<String> cardio = Arrays.asList("chest", "heart", "palpitation", "shortness of breath", "sweat");
+        for (String k : cardio) if (s.contains(k)) return Specialization.CARDIOLOGIST;
+
+        List<String> derm = Arrays.asList("skin", "rash", "acne", "itch", "psoriasis", "eczema");
+        for (String k : derm) if (s.contains(k)) return Specialization.DERMATOLOGIST;
+
+        List<String> neuro = Arrays.asList("headache", "migraine", "dizzy", "seizure", "numb", "tingle");
+        for (String k : neuro) if (s.contains(k)) return Specialization.NEUROLOGIST;
+
+        List<String> ortho = Arrays.asList("bone", "fracture", "joint", "knee", "back", "shoulder", "sprain");
+        for (String k : ortho) if (s.contains(k)) return Specialization.ORTHOPEDIC;
+
+        List<String> ped = Arrays.asList("child", "baby", "infant", "pediatric", "pediatrics", "kids");
+        for (String k : ped) if (s.contains(k)) return Specialization.PEDIATRICIAN;
+
+        List<String> ent = Arrays.asList("ear", "nose", "throat", "hearing", "sinus", "tonsil");
+        for (String k : ent) if (s.contains(k)) return Specialization.ENT;
+
+        List<String> opth = Arrays.asList("eye", "vision", "blur", "red eye", "ocular");
+        for (String k : opth) if (s.contains(k)) return Specialization.OPHTHALMOLOGIST;
+
+        List<String> psych = Arrays.asList("depress", "anxiety", "mood", "stress", "psychiat");
+        for (String k : psych) if (s.contains(k)) return Specialization.PSYCHIATRIST;
+
+        List<String> surg = Arrays.asList("abdominal", "appendix", "surgery", "hernia", "bleed");
+        for (String k : surg) if (s.contains(k)) return Specialization.SURGEON;
+
+        List<String> general = Arrays.asList("fever", "cough", "cold", "flu", "infection", "pain");
+        for (String k : general) if (s.contains(k)) return Specialization.GENERAL_PRACTITIONER;
+
+        return null;
     }
 }
